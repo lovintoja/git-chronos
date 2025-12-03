@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go mod:*)",
+      "Read(//usr/local/go/bin/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//Users/filipdumanowski/go/**)",
+      "Bash(export PATH=$PATH:/usr/local/go/bin)",
+      "Bash(go get:*)",
+      "Bash(go build:*)",
+      "Bash(go run:*)",
+      "Bash(git init:*)",
+      "Bash(git -C /Users/filipdumanowski/gitcommiteditor add go.mod go.sum main.go cmd/root.go cmd/rewrite.go)",
+      "Bash(git -C /Users/filipdumanowski/gitcommiteditor commit -m \"$\\(cat <<'EOF'\nfeat: initialize git-chronos CLI with Cobra framework and rewrite subcommand\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C /Users/filipdumanowski/gitcommiteditor remote -v)",
+      "Bash(git add:*)",
+      "Bash(go vet:*)",
+      "Bash(go test:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
