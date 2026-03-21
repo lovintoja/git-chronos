@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -185,6 +186,89 @@ func randomTimestamps(monthStart, monthEnd time.Time, count int, rng *rand.Rand)
 		}
 	}
 	return ts
+}
+
+// GenerateTimestamps returns exactly n timestamps distributed across [startDateStr, endDateStr]
+// using the same per-month ±20% variance as CalculateDistribution.
+// Each month receives a proportional share of commits; exact totals are ensured via
+// the largest-remainder rounding method.
+func GenerateTimestamps(n int, startDateStr, endDateStr string, rng *rand.Rand) ([]time.Time, error) {
+	if n <= 0 {
+		return nil, fmt.Errorf("n must be positive")
+	}
+
+	start, err := time.Parse(DateLayout, startDateStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid start-date: %w", err)
+	}
+	end, err := time.Parse(DateLayout, endDateStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid end-date: %w", err)
+	}
+	if !end.After(start) {
+		return nil, fmt.Errorf("end-date must be after start-date")
+	}
+
+	totalMonths := monthsBetween(start, end)
+	if totalMonths < 1 {
+		totalMonths = 1
+	}
+
+	// Generate per-month weights with ±20% deviation
+	weights := make([]float64, totalMonths)
+	totalWeight := 0.0
+	for i := range weights {
+		deviation := rng.Float64()*0.4 - 0.2
+		w := 1.0 * (1 + deviation)
+		if w < 0.1 {
+			w = 0.1
+		}
+		weights[i] = w
+		totalWeight += w
+	}
+
+	// Exact (fractional) per-month counts
+	exact := make([]float64, totalMonths)
+	for i, w := range weights {
+		exact[i] = (w / totalWeight) * float64(n)
+	}
+
+	// Largest-remainder method to get integer counts summing to exactly n
+	monthCounts := make([]int, totalMonths)
+	remainders := make([]float64, totalMonths)
+	floored := 0
+	for i, e := range exact {
+		monthCounts[i] = int(math.Floor(e))
+		remainders[i] = e - float64(monthCounts[i])
+		floored += monthCounts[i]
+	}
+	toAdd := n - floored
+	indices := make([]int, totalMonths)
+	for i := range indices {
+		indices[i] = i
+	}
+	sort.Slice(indices, func(a, b int) bool {
+		return remainders[indices[a]] > remainders[indices[b]]
+	})
+	for k := 0; k < toAdd && k < len(indices); k++ {
+		monthCounts[indices[k]]++
+	}
+
+	// Generate timestamps per month
+	var all []time.Time
+	for monthIdx, count := range monthCounts {
+		if count <= 0 {
+			continue
+		}
+		monthStart := addMonths(start, monthIdx)
+		monthEnd := addMonths(start, monthIdx+1).Add(-time.Second)
+		if monthEnd.After(end.Add(24*time.Hour - time.Second)) {
+			monthEnd = end.Add(24*time.Hour - time.Second)
+		}
+		all = append(all, randomTimestamps(monthStart, monthEnd, count, rng)...)
+	}
+
+	return all, nil
 }
 
 // generateMessage produces a short, plausible commit message for a file batch.
